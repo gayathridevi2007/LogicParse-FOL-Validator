@@ -10,6 +10,7 @@ import {
   X,
   Cpu
 } from 'lucide-react';
+import { checkBackendHealth } from '../../services/api';
 
 interface NavbarProps {
   activeTab: string;
@@ -22,20 +23,12 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab }) => {
 
   useEffect(() => {
     // Check API health
-    const checkHealth = async () => {
-      try {
-        const res = await fetch('http://localhost:8000/api/health', { signal: AbortSignal.timeout(2000) });
-        if (res.ok) {
-          setApiOnline(true);
-        } else {
-          setApiOnline(false);
-        }
-      } catch {
-        setApiOnline(false);
-      }
+    const verifyHealth = async () => {
+      const res = await checkBackendHealth();
+      setApiOnline(res.healthy);
     };
-    checkHealth();
-    const interval = setInterval(checkHealth, 15000);
+    verifyHealth();
+    const interval = setInterval(verifyHealth, 15000);
     return () => clearInterval(interval);
   }, []);
 
@@ -108,11 +101,11 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab }) => {
                 apiOnline === true 
                   ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)] animate-pulse' 
                   : apiOnline === false 
-                  ? 'bg-amber-500' 
-                  : 'bg-slate-500'
+                  ? 'bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.8)]' 
+                  : 'bg-amber-400 animate-pulse'
               }`} />
-              <span className="text-slate-400 font-mono text-[11px]">
-                {apiOnline === true ? 'ENGINE LIVE' : apiOnline === false ? 'CONNECTING...' : 'CHECKING'}
+              <span className="text-slate-300 font-mono text-[11px]">
+                {apiOnline === true ? 'CONNECTED' : apiOnline === false ? 'DISCONNECTED' : 'CHECKING...'}
               </span>
             </div>
 

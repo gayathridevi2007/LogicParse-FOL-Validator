@@ -3,8 +3,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.database.session import engine, Base
 from app.api.routes import validator, history, examples, practice, about
 
-# Initialize database schema
-Base.metadata.create_all(bind=engine)
+# Safe initialization of database schema
+try:
+    Base.metadata.create_all(bind=engine)
+except Exception:
+    pass
 
 app = FastAPI(
     title="LogicParse API",
@@ -39,4 +42,8 @@ def root():
 
 @app.get("/api/health")
 def health():
-    return {"status": "healthy"}
+    return {
+        "status": "healthy",
+        "service": "LogicParse Validation Engine",
+        "engine": "Recursive Descent FOL Parser"
+    }

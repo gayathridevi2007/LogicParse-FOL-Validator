@@ -1,5 +1,5 @@
 ﻿import React, { useState, useEffect, useRef } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { 
   Play, 
   RotateCcw, 
@@ -8,10 +8,9 @@ import {
   CheckCircle2, 
   XCircle, 
   Layers, 
-  Sparkles, 
-  FileText, 
-  Share2,
-  BookmarkPlus
+  AlertTriangle,
+  WifiOff,
+  RefreshCw
 } from 'lucide-react';
 import { SymbolToolbar } from '../components/validator/SymbolToolbar';
 import { PipelineStepper } from '../components/validator/PipelineStepper';
@@ -30,6 +29,7 @@ interface ValidatorPageProps {
 export const ValidatorPage: React.FC<ValidatorPageProps> = ({ initialExpression = '' }) => {
   const [expression, setExpression] = useState<string>(initialExpression || '∀x (Student(x) → Learns(x))');
   const [validationResult, setValidationResult] = useState<ValidationResponse | null>(null);
+  const [connectionError, setConnectionError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [copied, setCopied] = useState<boolean>(false);
   const [saveToHistory, setSaveToHistory] = useState<boolean>(true);
@@ -49,36 +49,19 @@ export const ValidatorPage: React.FC<ValidatorPageProps> = ({ initialExpression 
     }
 
     setIsLoading(true);
+    setConnectionError(null);
     try {
       const res = await validateExpression({
         expression: targetExpr,
         save_to_history: saveToHistory
       });
       setValidationResult(res);
+      setConnectionError(null);
     } catch (err: any) {
-      setValidationResult({
-        valid: false,
-        expression: targetExpr,
-        tokens: [],
-        statistics: { predicates: 0, variables: 0, quantifiers: 0, operators: 0, parentheses: 0 },
-        errors: [
-          {
-            type: 'API_ERROR',
-            message: err.message || 'Failed to reach validation service',
-            position: 0,
-            line: 1,
-            column: 1,
-            length: 1,
-            explanation: 'The application backend could not process the request.',
-            suggestion: 'Ensure the FastAPI backend is running on http://localhost:8000.'
-          }
-        ],
-        parse_tree: null,
-        pipeline_steps: [
-          { step: 'INPUT_RECEIVED', name: 'Input Received', status: 'completed' },
-          { step: 'SYNTAX_VALIDATION', name: 'Backend Service', status: 'error', detail: err.message }
-        ]
-      });
+      setValidationResult(null);
+      setConnectionError(
+        err.message || 'Unable to connect to the LogicParse validation backend. Please verify your internet connection or server availability.'
+      );
     } finally {
       setIsLoading(false);
     }
@@ -106,6 +89,7 @@ export const ValidatorPage: React.FC<ValidatorPageProps> = ({ initialExpression 
   const handleClear = () => {
     setExpression('');
     setValidationResult(null);
+    setConnectionError(null);
     if (textareaRef.current) {
       textareaRef.current.focus();
     }
@@ -231,7 +215,42 @@ export const ValidatorPage: React.FC<ValidatorPageProps> = ({ initialExpression 
 
         {/* Right Column: Validation Analysis & Visualizations */}
         <div className="lg:col-span-7 space-y-6">
-          {/* Result Status Banner */}
+          {/* Connection Error Banner */}
+          {connectionError && (
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="p-5 rounded-2xl border bg-amber-950/30 border-amber-500/50 shadow-glow-amber space-y-3"
+            >
+              <div className="flex items-start space-x-3.5">
+                <div className="p-2.5 rounded-xl bg-amber-500/20 text-amber-400 border border-amber-500/40 mt-0.5">
+                  <WifiOff className="w-5 h-5" />
+                </div>
+                <div className="space-y-1">
+                  <h2 className="text-base font-bold font-mono text-amber-300 tracking-wide uppercase">
+                    BACKEND CONNECTION ERROR
+                  </h2>
+                  <p className="text-xs text-slate-300 leading-relaxed">
+                    {connectionError}
+                  </p>
+                  <p className="text-[11px] text-slate-400 font-mono pt-1">
+                    Check that the API is deployed or run locally with <code className="text-amber-300">uvicorn app.main:app --port 8000</code>.
+                  </p>
+                </div>
+              </div>
+              <div className="flex justify-end pt-1">
+                <button
+                  onClick={() => handleValidate()}
+                  className="px-3 py-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 text-xs font-mono font-semibold flex items-center space-x-1.5 transition-all"
+                >
+                  <RefreshCw className="w-3.5 h-3.5" />
+                  <span>Retry Validation</span>
+                </button>
+              </div>
+            </motion.div>
+          )}
+
+          {/* Result Status Banner (Only for real parser validation decisions) */}
           {validationResult && (
             <motion.div
               initial={{ opacity: 0, y: -10 }}
@@ -282,11 +301,11 @@ export const ValidatorPage: React.FC<ValidatorPageProps> = ({ initialExpression 
             <ErrorDisplay
               errors={validationResult.errors}
               expression={expression}
-              onApplySuggestion={(sug) => {}}
+              onApplySuggestion={() => {}}
             />
           )}
 
-          {/* Statistics Cards (if valid or partial metrics available) */}
+          {/* Statistics Cards */}
           {validationResult && (
             <StatisticsCards
               statistics={validationResult.statistics}
